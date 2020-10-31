@@ -51,9 +51,14 @@ class TestParseCsv(unittest.TestCase):
     self.assertEqual(next(eloify.parse_csv(['11564, Magnus Carlsen, Roger Federer, 0-5'])), ('Magnus Carlsen', 'Roger Federer', 0))
 
   def test_multi(self):
-    inp = ['1,a,b,2-2', '2020-10-30, team1, team 2, 3-1', '11564, Magnus Carlsen, Roger Federer, 0-5']
-    want = [ ('a', 'b', 0.5), ('team1', 'team 2', 1), ('Magnus Carlsen', 'Roger Federer', 0)]
+    inp = ['1,a,b,2-2', '11564, Magnus Carlsen, Roger Federer, 0-5', '2020-10-30, team1, team 2, 3-1']
+    want = [ ('a', 'b', 0.5), ('Magnus Carlsen', 'Roger Federer', 0), ('team1', 'team 2', 1)]
     self.assertEqual(list(eloify.parse_csv(inp)), want)
+
+  def test_unordered_fail(self):
+    inp = ['1,a,b,2-2', '3,b,a,3-1', '2,c,a,0-5']
+    with self.assertRaisesRegex(AssertionError, 'lexicographically.*"3" followed by "2"'):
+      list(eloify.parse_csv(inp))
 
   def test_file(self):
     want = [
@@ -63,16 +68,21 @@ class TestParseCsv(unittest.TestCase):
       ('team 3', 'team 1', 0.5),
       ('team 2', 'team 1', 1),
     ]
-    self.assertEqual(list(eloify.parse_csv(open('testdata/matches.csv'))), want)
+    with open('testdata/matches.csv') as f:
+      self.assertEqual(list(eloify.parse_csv(f)), want)
 
-class TestParseCsv(unittest.TestCase):
+class TestMain(unittest.TestCase):
 
   def setUp(self):
     eloify.args.input_csv = 'testdata/matches.csv'
 
-  def test_singles(self):
+  def test_all(self):
     ratings = eloify.main()
-    self.assertEqual(ratings, None)
+    self.assertGreater(ratings['team 2'], ratings['team 3'])
+    self.assertGreater(ratings['team 3'], ratings['team 1'])
+    self.assertEqual(round(ratings['team 1']), 972)
+    self.assertEqual(round(ratings['team 2']), 1019)
+    self.assertEqual(round(ratings['team 3']), 1009)
 
 if __name__ == '__main__':
     unittest.main()
